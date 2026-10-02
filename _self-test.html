@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8"><title>self-test กำลังรัน</title>
+<script src="config.js"></script>
+<script src="gas-client.js"></script>
+</head><body>
+<pre id="out">เริ่ม...</pre>
+<script>
+const out = document.getElementById('out');
+let pass = 0, fail = 0;
+function log(s) { out.textContent += '\n' + s; }
+function ok(name, cond, extra) {
+  (cond ? pass++ : fail++);
+  log((cond ? 'PASS ' : 'FAIL ') + name + (extra !== undefined ? ' | ' + extra : ''));
+}
+(async () => {
+  try {
+    log('apiUrl = ' + APP_CONFIG.apiUrl.slice(0, 55) + '...');
+    log('tokenLen = ' + APP_CONFIG.apiToken.length);
+    log('origin = ' + location.origin);
+
+    const p = await TA_API.call('ping', []);
+    ok('ping', p && p.pong === true, 'version=' + (p && p.version));
+
+    let blocked = false;
+    try { await TA_API.call('getAllData', []); } catch (e) { blocked = true; }
+    ok('ไม่ล็อกอินต้องถูกปฏิเสธ', blocked);
+
+    const bad = await TA_API.call('login', ['Loesak', 'รหัสไม่ถูก']);
+    ok('รหัสผิดต้องไม่ผ่าน', !bad, JSON.stringify(bad));
+
+    const u = await TA_API.call('login', ['Loesak', '1234']);
+    ok('ล็อกอินครู Loesak/1234', !!(u && u.sid), 'role=' + (u && u.role) + ' sidlen=' + (u && u.sid && u.sid.length));
+
+    sessionStorage.setItem('currentUser', JSON.stringify(u));
+    const all = await TA_API.call('getAllData', []);
+    ok('getAllData', !!(all && all.users), 'users=' + all.users.length + ' trainings=' + all.trainings.length + ' awards=' + all.awards.length);
+    ok('ไม่มีรหัสผ่านในข้อมูล', !all.users.some(x => 'password' in x));
+
+    let aBlocked = false;
+    try { await TA_API.call('getConfig', []); } catch (e) { aBlocked = true; }
+    ok('ครูห้ามเรียกคำสั่งแอดมิน', aBlocked);
+
+    const a = await TA_API.call('login', ['admin', '1234']);
+    ok('ล็อกอินแอดมิน', !!(a && a.role === 'admin'));
+
+    log('สรุป: ผ่าน ' + pass + ' ไม่ผ่าน ' + fail);
+    document.title = 'self-test เสร็จ ผ่าน ' + pass + ' ไม่ผ่าน ' + fail;
+  } catch (e) {
+    log('ERROR ' + (e && e.message));
+    document.title = 'self-test ERROR';
+  }
+})();
+</script>
+</body></html>
