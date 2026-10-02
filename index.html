@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกข้อมูลการอบรมและเกียรติบัตรรางวัล - สกร.ระดับอำเภอเมืองนครศรีธรรมราช</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Phosphor Icons (สำหรับไอคอนสวยๆ) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- ⚙️ ชั้นเชื่อมต่อ API (สำหรับรันบน GitHub Pages / ไฟล์ในเครื่อง) -->
+    <script src="config.js"></script>
+    <script src="gas-client.js"></script>
+
+    <style>
+        body {
+            box-sizing: border-box;
+            font-family: 'Kanit', sans-serif;
+            background-color: #f8fafc; /* Slate-50 */
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2563eb; /* Blue-600 */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Tab Design */
+        .tab-button {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .tab-button::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background-color: #2563eb;
+            transition: width 0.3s ease;
+        }
+        .tab-button.active {
+            color: #2563eb;
+            font-weight: 600;
+            background-color: #eff6ff;
+        }
+        .tab-button.active::after {
+            width: 100%;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Modal Design */
+        .modal {
+            background-color: rgba(15, 23, 42, 0.6); /* Slate-900 with opacity */
+            backdrop-filter: blur(4px);
+        }
+        
+        /* File Upload */
+        .file-drop-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #f8fafc;
+        }
+        .file-drop-zone:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .file-drop-zone.dragover {
+            background-color: #dbeafe;
+            border-color: #2563eb;
+            transform: scale(1.01);
+        }
+        
+        .gradient-card-1 { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        .gradient-card-2 { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .gradient-card-3 { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white bg-opacity-90 backdrop-blur-sm transition-opacity">
+        <div class="loading-spinner mb-4"></div>
+        <span class="text-lg font-medium text-slate-600 animate-pulse">กำลังโหลดข้อมูล...</span>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="min-h-screen flex flex-col">
+        
+        <!-- Header with Logo -->
+        <header class="bg-white shadow-sm sticky top-0 z-30">
+            <div class="container mx-auto px-4 py-3 max-w-7xl">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <!-- Logo & Title -->
+                    <div class="flex items-center gap-4 w-full md:w-auto justify-center md:justify-start">
+                        <img src="https://skrvocational.web.app/img/SKRLoGo.png" alt="Logo สกร." class="h-16 w-auto drop-shadow-sm hover:scale-105 transition-transform duration-300">
+                        <div class="text-center md:text-left">
+                            <h1 class="text-xl md:text-2xl font-bold text-blue-900 leading-tight">ระบบบันทึกข้อมูลการอบรม<br class="hidden md:inline">และเกียรติบัตรรางวัล</h1>
+                            <p class="text-sm text-slate-500 font-medium">สกร.ระดับอำเภอเมืองนครศรีธรรมราช</p>
+                        </div>
+                    </div>
+
+                    <!-- User Profile & Logout -->
+                    <div id="userSection" class="flex items-center gap-4" style="display: none;">
+                        <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-200">
+                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                <i class="ph ph-user text-lg"></i>
+                            </div>
+                            <span id="welcomeUser" class="text-sm font-medium text-slate-700"></span>
+                            <!-- Add Edit Profile Button -->
+                            <button onclick="openEditProfileModal()" class="text-slate-400 hover:text-blue-600 transition-colors" title="แก้ไขชื่อ">
+                                <i class="ph ph-pencil-simple text-lg"></i>
+                            </button>
+                        </div>
+                        <button onclick="logout()" class="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-full transition-colors border border-red-200 text-sm font-medium">
+                            <i class="ph ph-sign-out text-lg"></i>
+                            <span>ออกจากระบบ</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow container mx-auto p-4 md:p-6 max-w-7xl">
+
+            <!-- 🔧 ตั้งค่าครั้งแรก: แสดงเมื่อยังไม่ได้ตั้งค่า API (ไม่ต้องล็อกอิน) -->
+            <div id="firstRunBox" class="max-w-md mx-auto mt-10 bg-white p-8 rounded-2xl shadow-xl border border-amber-200" style="display: none;">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50 text-amber-600 mb-4">
+                        <i class="ph ph-plug text-3xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">ตั้งค่าการเชื่อมต่อ (ครั้งแรก)</h2>
+                    <p class="text-slate-500 mt-2 text-sm">วาง URL ของ Apps Script Web App แล้วกดบันทึก<br>ทำครั้งเดียวต่อ 1 เบราว์เซอร์</p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">API URL (ลงท้ายด้วย /exec)</label>
+                        <input type="text" id="setupApiUrl" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm" placeholder="https://script.google.com/macros/s/XXXXXXXX/exec">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">API Token</label>
+                        <input type="text" id="setupApiToken" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm" placeholder="รหัสลับใน Code.gs">
+                    </div>
+                    <button type="button" onclick="taSetupSave()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium shadow-md shadow-blue-200 transition-all active:scale-95">
+                        บันทึกและทดสอบการเชื่อมต่อ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Login Section -->
+            <div id="loginSection" class="max-w-md mx-auto mt-10 bg-white p-8 rounded-2xl shadow-xl border border-slate-100" style="display: none;">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 mb-4">
+                        <i class="ph ph-lock-key text-3xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">เข้าสู่ระบบ</h2>
+                    <p class="text-slate-500 mt-2">กรุณากรอกข้อมูลเพื่อเข้าใช้งานระบบ</p>
+                </div>
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อผู้ใช้</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                                <i class="ph ph-user"></i>
+                            </span>
+                            <input type="text" id="username" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Username">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">รหัสผ่าน</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                                <i class="ph ph-key"></i>
+                            </span>
+                            <input type="password" id="password" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Password">
+                        </div>
+                    </div>
+                    <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg shadow-lg shadow-blue-200 transition-all font-semibold text-base flex items-center justify-center gap-2 hover:shadow-blue-300 transform active:scale-95">
+                        <span>เข้าสู่ระบบ</span>
+                        <i class="ph ph-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- App Content (Hidden until logged in) -->
+            <div id="mainContent" class="space-y-6" style="display: none;">
+                
+                <!-- Tabs Navigation -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-1.5 overflow-x-auto">
+                    <nav class="flex gap-2 min-w-max md:min-w-0">
+                        <button class="tab-button active flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm text-slate-600 hover:bg-slate-50" onclick="openTab(event, 'dashboardTab')">
+                            <i class="ph ph-squares-four text-lg"></i>
+                            <span>ภาพรวม (Dashboard)</span>
+                        </button>
+                        <button class="tab-button flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm text-slate-600 hover:bg-slate-50" onclick="openTab(event, 'trainingTab')">
+                            <i class="ph ph-presentation-chart text-lg"></i>
+                            <span>ข้อมูลการอบรม</span>
+                        </button>
+                        <button class="tab-button flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm text-slate-600 hover:bg-slate-50" onclick="openTab(event, 'awardsTab')">
+                            <i class="ph ph-trophy text-lg"></i>
+                            <span>เกียรติบัตร/รางวัล</span>
+                        </button>
+                        <button id="adminTabButton" class="tab-button flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm text-slate-600 hover:bg-slate-50" onclick="openTab(event, 'adminTab')" style="display: none;">
+                            <i class="ph ph-users-three text-lg"></i>
+                            <span>จัดการผู้ใช้งาน</span>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Dashboard Tab -->
+                <div id="dashboardTab" class="tab-content active space-y-6">
+                    <!-- Filter Bar -->
+                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-2 text-blue-800">
+                            <i class="ph ph-chart-pie-slice text-2xl"></i>
+                            <h2 class="text-lg font-bold">สรุปสถิติประจำปี</h2>
+                        </div>
+                        <div class="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">
+                            <label for="yearFilter" class="text-sm font-medium text-slate-600 whitespace-nowrap">เลือกปีงบประมาณ:</label>
+                            <select id="yearFilter" onchange="updateDashboard(this.value)" class="bg-transparent font-semibold text-blue-700 focus:outline-none cursor-pointer">
+                                <!-- Options populated by JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Card 1 -->
+                        <div class="gradient-card-1 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 p-4 opacity-20">
+                                <i class="ph ph-presentation-chart text-8xl"></i>
+                            </div>
+                            <div class="relative z-10">
+                                <p class="text-blue-100 font-medium mb-1">จำนวนอบรม/สัมมนา</p>
+                                <h3 id="summaryTotalTrainings" class="text-4xl font-bold">0</h3>
+                                <p class="text-xs text-blue-100 mt-4 bg-white/20 inline-block px-2 py-1 rounded">ครั้ง/ปี</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Card 2 -->
+                        <div class="gradient-card-2 rounded-2xl p-6 text-white shadow-lg shadow-emerald-200 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 p-4 opacity-20">
+                                <i class="ph ph-clock text-8xl"></i>
+                            </div>
+                            <div class="relative z-10">
+                                <p class="text-emerald-100 font-medium mb-1">รวมชั่วโมงการพัฒนา</p>
+                                <h3 id="summaryTotalHours" class="text-4xl font-bold">0</h3>
+                                <p class="text-xs text-emerald-100 mt-4 bg-white/20 inline-block px-2 py-1 rounded">ชั่วโมง</p>
+                            </div>
+                        </div>
+
+                        <!-- Card 3 -->
+                        <div class="gradient-card-3 rounded-2xl p-6 text-white shadow-lg shadow-amber-200 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 p-4 opacity-20">
+                                <i class="ph ph-medal text-8xl"></i>
+                            </div>
+                            <div class="relative z-10">
+                                <p class="text-amber-100 font-medium mb-1">เกียรติบัตร/รางวัล</p>
+                                <h3 id="summaryTotalAwards" class="text-4xl font-bold">0</h3>
+                                <p class="text-xs text-amber-100 mt-4 bg-white/20 inline-block px-2 py-1 rounded">รายการ</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Area -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-bold text-slate-700">สถิติการอบรม (ชั่วโมง)</h3>
+                                <div class="p-2 bg-blue-50 rounded-lg text-blue-600"><i class="ph ph-chart-bar text-xl"></i></div>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="trainingHoursChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-bold text-slate-700">สัดส่วนรางวัล</h3>
+                                <div class="p-2 bg-amber-50 rounded-lg text-amber-600"><i class="ph ph-chart-donut text-xl"></i></div>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="awardsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Table (Updated with Pagination) -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                            <h3 class="text-lg font-bold text-slate-700">สรุปข้อมูลรายบุคคล</h3>
+                            <span class="text-xs text-slate-400">แสดง 10 รายการต่อหน้า</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 text-sm uppercase tracking-wider border-b border-slate-200">
+                                        <th class="p-4 font-semibold">ชื่อ-สกุล</th>
+                                        <th class="p-4 font-semibold text-center">จำนวนอบรม</th>
+                                        <th class="p-4 font-semibold text-center">รวมชั่วโมง</th>
+                                        <th class="p-4 font-semibold text-center">จำนวนรางวัล</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="teacherStatsBody" class="text-slate-700 text-sm divide-y divide-slate-100">
+                                    <!-- Data injected via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Pagination Controls -->
+                        <div class="p-4 flex justify-between items-center bg-slate-50 border-t border-slate-200" id="paginationControls" style="display: none;">
+                             <button onclick="changeStatsPage(-1)" id="prevPageBtn" class="px-3 py-1 bg-white border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 text-sm">
+                                 <i class="ph ph-caret-left"></i> ก่อนหน้า
+                             </button>
+                             <span id="pageIndicator" class="text-sm font-medium text-slate-600">หน้า 1</span>
+                             <button onclick="changeStatsPage(1)" id="nextPageBtn" class="px-3 py-1 bg-white border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-50 text-sm">
+                                 ถัดไป <i class="ph ph-caret-right"></i>
+                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Training Tab -->
+                <div id="trainingTab" class="tab-content space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">ข้อมูลการอบรม/สัมมนา</h2>
+                            <p class="text-sm text-slate-500">รายการพัฒนาบุคลากรทั้งหมด</p>
+                        </div>
+                        <button onclick="openAddTrainingModal()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md shadow-blue-200 transition-all active:scale-95 font-medium">
+                            <i class="ph ph-plus-circle text-xl"></i>
+                            <span>เพิ่มข้อมูลใหม่</span>
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left whitespace-nowrap">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
+                                        <th class="px-6 py-4">ปี</th>
+                                        <th class="px-6 py-4">ชื่อ-สกุล</th>
+                                        <th class="px-6 py-4">หลักสูตร/โครงการ</th>
+                                        <th class="px-6 py-4">วันที่</th>
+                                        <th class="px-6 py-4 text-right">ชั่วโมง</th>
+                                        <th class="px-6 py-4 text-center">ไฟล์แนบ</th>
+                                        <th class="px-6 py-4 text-right">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trainingTableBody" class="divide-y divide-slate-100 text-sm text-slate-700">
+                                    <!-- JS Data -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Awards Tab -->
+                <div id="awardsTab" class="tab-content space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">ข้อมูลเกียรติบัตร/รางวัล</h2>
+                            <p class="text-sm text-slate-500">ผลงานและความภาคภูมิใจ</p>
+                        </div>
+                        <button onclick="openAddAwardModal()" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg shadow-md shadow-emerald-200 transition-all active:scale-95 font-medium">
+                            <i class="ph ph-plus-circle text-xl"></i>
+                            <span>เพิ่มข้อมูลใหม่</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left whitespace-nowrap">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
+                                        <th class="px-6 py-4">ปี</th>
+                                        <th class="px-6 py-4">ชื่อ-สกุล</th>
+                                        <th class="px-6 py-4">รายการรางวัล</th>
+                                        <th class="px-6 py-4">วันที่</th>
+                                        <th class="px-6 py-4 text-center">ไฟล์แนบ</th>
+                                        <th class="px-6 py-4 text-right">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="awardTableBody" class="divide-y divide-slate-100 text-sm text-slate-700">
+                                    <!-- JS Data -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Tab -->
+                <div id="adminTab" class="tab-content space-y-6">
+                    <!-- ⚙️ การ์ดตั้งค่าระบบ (API) -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <i class="ph ph-plug text-xl text-slate-500"></i> ตั้งค่าระบบ (การเชื่อมต่อ API)
+                                </h2>
+                                <p class="text-sm text-slate-500">URL ของ Apps Script Web App และรหัสลับ (API token)</p>
+                            </div>
+                            <span id="apiStatusChip" class="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
+                                <i class="ph ph-circle"></i> <span id="apiStatusText">ยังไม่ได้ตรวจสอบ</span>
+                            </span>
+                        </div>
+                        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">API URL (ลงท้ายด้วย /exec)</label>
+                                <input type="text" id="cfgApiUrl" placeholder="https://script.google.com/macros/s/XXXXXXXX/exec"
+                                       class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">API Token</label>
+                                <input type="text" id="cfgApiToken" placeholder="รหัสลับที่ตั้งไว้ใน Code.gs"
+                                       class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">Spreadsheet ID</label>
+                                <input type="text" id="cfgSheetId" readonly
+                                       class="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-mono text-sm cursor-not-allowed">
+                                <p class="text-xs text-slate-400 mt-1">อ่านจากเซิร์ฟเวอร์ (แก้จริงที่ Code.gs หรือ Script Properties)</p>
+                            </div>
+                            <div class="md:col-span-2 flex flex-wrap justify-end gap-3 pt-2 border-t border-slate-100">
+                                <button type="button" onclick="taResetApiConfig()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 font-medium">ล้างค่าในเครื่องนี้</button>
+                                <button type="button" onclick="taTestApi()" class="px-4 py-2 rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 font-medium">ทดสอบการเชื่อมต่อ</button>
+                                <button type="button" onclick="taSaveApiConfig()" class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-md shadow-blue-200">บันทึกการตั้งค่า</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">จัดการผู้ใช้งาน</h2>
+                            <p class="text-sm text-slate-500">เพิ่ม ลบ แก้ไข สิทธิ์การเข้าใช้งาน</p>
+                        </div>
+                        <button onclick="openAddUserModal()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg shadow-md shadow-indigo-200 transition-all active:scale-95 font-medium">
+                            <i class="ph ph-user-plus text-xl"></i>
+                            <span>เพิ่มผู้ใช้งาน</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left whitespace-nowrap">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
+                                        <th class="px-6 py-4">ID</th>
+                                        <th class="px-6 py-4">Username</th>
+                                        <th class="px-6 py-4">ชื่อ-สกุล</th>
+                                        <th class="px-6 py-4">บทบาท</th>
+                                        <th class="px-6 py-4 text-right">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userTableBody" class="divide-y divide-slate-100 text-sm text-slate-700">
+                                    <!-- JS Data -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="bg-white border-t border-slate-200 py-6 mt-8">
+            <div class="container mx-auto px-4 text-center text-slate-500 text-sm">
+                &copy; <span id="currentYear"></span> ระบบบันทึกข้อมูลการอบรมและเกียรติบัตรรางวัล สกร.ระดับอำเภอเมืองนครศรีธรรมราช
+            </div>
+        </footer>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Edit Profile Modal (New) -->
+    <div id="editProfileModal" class="fixed inset-0 modal items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <h2 class="text-xl font-bold text-slate-800">แก้ไขข้อมูลส่วนตัว</h2>
+                <button onclick="closeEditProfileModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="ph ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form onsubmit="updateSelfProfile(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อ-สกุล</label>
+                        <input type="text" id="editProfileFullName" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    </div>
+                    <div class="pt-2 flex justify-end gap-3">
+                        <button type="button" onclick="closeEditProfileModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium">ยกเลิก</button>
+                        <button type="submit" id="saveProfileBtn" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200 font-medium">บันทึก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Training Modal -->
+    <div id="trainingModal" class="fixed inset-0 modal items-center justify-center z-40 hidden p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h2 id="trainingModalTitle" class="text-xl font-bold text-slate-800">เพิ่มข้อมูลการอบรม</h2>
+                <button onclick="closeTrainingModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="ph ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <form id="trainingForm" onsubmit="saveTraining(event)" class="space-y-5">
+                    <input type="hidden" id="trainingId">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ผู้เข้ารับการอบรม <span class="text-red-500">*</span></label>
+                            <select id="teacherId" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ปีงบประมาณ <span class="text-red-500">*</span></label>
+                            <input type="number" id="year" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อเรื่อง/หลักสูตร <span class="text-red-500">*</span></label>
+                        <input type="text" id="title" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ระบุชื่อหลักสูตร" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">หน่วยงานที่จัด <span class="text-red-500">*</span></label>
+                        <input type="text" id="organization" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ระบุหน่วยงาน" required>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label class="block text-sm font-semibold text-slate-700 mb-3">ระยะเวลาการอบรม</label>
+                        <div class="flex gap-6 mb-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="dateType" value="single" class="w-4 h-4 text-blue-600 focus:ring-blue-500" checked onchange="toggleDateType('single')">
+                                <span class="ml-2 text-slate-700">วันเดียว</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="dateType" value="range" class="w-4 h-4 text-blue-600 focus:ring-blue-500" onchange="toggleDateType('range')">
+                                <span class="ml-2 text-slate-700">หลายวันต่อเนื่อง</span>
+                            </label>
+                        </div>
+
+                        <!-- Single Date -->
+                        <div id="singleDateSection" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">วันที่</label>
+                                <input type="date" id="date" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">จำนวนชั่วโมง</label>
+                                <input type="number" id="hours" step="0.5" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <!-- Range Date -->
+                        <div id="dateRangeSection" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">เริ่มวันที่</label>
+                                <input type="date" id="startDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">ถึงวันที่</label>
+                                <input type="date" id="endDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">ชั่วโมง/วัน</label>
+                                <input type="number" id="hoursPerDay" step="0.5" value="6" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">แนบไฟล์หลักฐาน</label>
+                        <div id="fileDropZone" class="file-drop-zone group">
+                            <i class="ph ph-cloud-arrow-up text-4xl text-slate-400 group-hover:text-blue-500 transition-colors mb-2"></i>
+                            <p class="text-slate-600 font-medium">คลิกหรือลากไฟล์มาวางที่นี่</p>
+                            <p class="text-xs text-slate-400 mt-1">รองรับไฟล์ภาพและ PDF</p>
+                            <input type="file" id="fileInput" multiple class="hidden" onchange="handleFiles(this.files)">
+                        </div>
+                        <div id="filePreviewContainer" class="mt-3 space-y-2"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                <button type="button" onclick="closeTrainingModal()" class="px-5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors font-medium">ยกเลิก</button>
+                <button type="button" onclick="document.getElementById('trainingForm').dispatchEvent(new Event('submit'))" id="saveTrainingBtn" class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200 transition-all font-medium">บันทึกข้อมูล</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Training Modal -->
+    <div id="editTrainingModal" class="fixed inset-0 modal items-center justify-center z-40 hidden p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h2 id="editTrainingModalTitle" class="text-xl font-bold text-slate-800">แก้ไขข้อมูลการอบรม</h2>
+                <button onclick="closeEditTrainingModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="ph ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <form id="editTrainingForm" onsubmit="updateTraining(event)" class="space-y-5">
+                    <input type="hidden" id="editTrainingId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ผู้เข้ารับการอบรม</label>
+                            <select id="editTeacherId" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ปีงบประมาณ</label>
+                            <input type="number" id="editYear" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อเรื่อง/หลักสูตร</label>
+                        <input type="text" id="editTitle" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">หน่วยงานที่จัด</label>
+                        <input type="text" id="editOrganization" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label class="block text-sm font-semibold text-slate-700 mb-3">ระยะเวลา</label>
+                        <div class="flex gap-6 mb-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="editDateType" value="single" class="w-4 h-4 text-blue-600" onchange="toggleEditDateType('single')">
+                                <span class="ml-2 text-slate-700">วันเดียว</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="editDateType" value="range" class="w-4 h-4 text-blue-600" onchange="toggleEditDateType('range')">
+                                <span class="ml-2 text-slate-700">หลายวัน</span>
+                            </label>
+                        </div>
+                        
+                        <div id="editSingleDateSection" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">วันที่</label>
+                                <input type="date" id="editDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">จำนวนชั่วโมง</label>
+                                <input type="number" id="editHours" step="0.5" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            </div>
+                        </div>
+
+                        <div id="editDateRangeSection" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">เริ่มวันที่</label>
+                                <input type="date" id="editStartDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">ถึงวันที่</label>
+                                <input type="date" id="editEndDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">ชม./วัน</label>
+                                <input type="number" id="editHoursPerDay" step="0.5" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">ไฟล์ที่มีอยู่</label>
+                        <div id="existingFilesContainer" class="space-y-2 mb-4"></div>
+                        
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">แนบไฟล์เพิ่ม</label>
+                        <div id="editFileDropZone" class="file-drop-zone group">
+                            <i class="ph ph-cloud-arrow-up text-4xl text-slate-400 group-hover:text-blue-500 mb-2"></i>
+                            <p class="text-slate-600">อัปโหลดไฟล์เพิ่มเติม</p>
+                            <input type="file" id="editFileInput" multiple class="hidden" onchange="handleFiles(this.files, 'edit')">
+                        </div>
+                        <div id="editFilePreviewContainer" class="mt-3 space-y-2"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                <button type="button" onclick="closeEditTrainingModal()" class="px-5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium">ยกเลิก</button>
+                <button type="button" onclick="document.getElementById('editTrainingForm').dispatchEvent(new Event('submit'))" id="updateTrainingBtn" class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-md shadow-blue-200">บันทึกการแก้ไข</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Award Modal -->
+    <div id="awardModal" class="fixed inset-0 modal items-center justify-center z-40 hidden p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h2 id="awardModalTitle" class="text-xl font-bold text-slate-800">เพิ่มข้อมูลรางวัล</h2>
+                <button onclick="closeAwardModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="ph ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <form id="awardForm" onsubmit="saveAward(event)" class="space-y-5">
+                    <input type="hidden" id="awardId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ผู้ได้รับรางวัล</label>
+                            <select id="awardTeacherId" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ปีงบประมาณ</label>
+                            <input type="number" id="awardYear" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อรางวัล/เกียรติบัตร</label>
+                        <input type="text" id="awardTitle" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">หน่วยงานที่มอบ</label>
+                        <input type="text" id="awardOrganization" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">วันที่ได้รับ</label>
+                        <input type="date" id="awardDate" class="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">หลักฐานรางวัล</label>
+                        <!-- Existing files section -->
+                        <div id="awardExistingFilesSection" class="hidden mb-3">
+                            <div id="awardExistingFilesContainer" class="space-y-2"></div>
+                        </div>
+                        
+                        <div id="awardFileDropZone" class="file-drop-zone group">
+                            <i class="ph ph-trophy text-4xl text-slate-400 group-hover:text-emerald-500 mb-2"></i>
+                            <p class="text-slate-600">แนบรูปภาพรางวัล</p>
+                            <input type="file" id="awardFileInput" multiple class="hidden" onchange="handleFiles(this.files, 'award')">
+                        </div>
+                        <div id="awardFilePreviewContainer" class="mt-3 space-y-2"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                <button type="button" onclick="closeAwardModal()" class="px-5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium">ยกเลิก</button>
+                <button type="button" onclick="document.getElementById('awardForm').dispatchEvent(new Event('submit'))" id="saveAwardBtn" class="px-5 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium shadow-md shadow-emerald-200">บันทึกรางวัล</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit User Modal -->
+    <div id="userModal" class="fixed inset-0 modal items-center justify-center z-40 hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <h2 id="userModalTitle" class="text-xl font-bold text-slate-800">เพิ่มผู้ใช้งาน</h2>
+                <button onclick="closeUserModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="ph ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="userForm" onsubmit="saveUser(event)" class="space-y-4">
+                    <input type="hidden" id="userId">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อ-สกุล</label>
+                        <input type="text" id="userFullName" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อผู้ใช้</label>
+                        <input type="text" id="userUsername" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">รหัสผ่าน</label>
+                        <input type="password" id="userPassword" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">บทบาท</label>
+                        <select id="userRole" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                            <option value="teacher">Teacher (ครู/บุคลากร — เห็นข้อมูลของตัวเอง)</option>
+                            <option value="user">User (ผู้ใช้ทั่วไป)</option>
+                            <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                        </select>
+                    </div>
+                    <div class="pt-2 flex justify-end gap-3">
+                        <button type="button" onclick="closeUserModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium">ยกเลิก</button>
+                        <button type="submit" id="saveUserBtn" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200 font-medium">บันทึก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- File Viewer Modal -->
+    <div id="fileAttachmentModal" class="fixed inset-0 modal items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[80vh]">
+             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="ph ph-paperclip text-slate-500"></i> ไฟล์แนบ
+                </h2>
+                <button onclick="closeFileAttachmentModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="ph ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div id="fileModalContent" class="p-6 overflow-y-auto custom-scrollbar space-y-3">
+                <!-- Content Injected -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Logic Script -->
+    <script>
+        document.getElementById('currentYear').textContent = new Date().getFullYear() + 543;
+
+        // Global state
+        let allData = {
+            users: [],
+            trainings: [],
+            awards: []
+        };
+        let currentUser = null;
+        let trainingChart = null;
+        let awardChart = null;
+
+        // Pagination Variables
+        let currentStatsData = [];
+        let statsPage = 1;
+        const statsRows = 10;
+
+        // File handling state
+        let stagedFiles = {
+            training: [],
+            editTraining: [],
+            award: []
+        };
+        
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            showLoading();
+            checkLoginState();
+            
+            initializeFileDropZone('fileDropZone', 'fileInput', 'filePreviewContainer', 'training');
+            initializeFileDropZone('editFileDropZone', 'editFileInput', 'editFilePreviewContainer', 'editTraining');
+            initializeFileDropZone('awardFileDropZone', 'awardFileInput', 'awardFilePreviewContainer', 'award');
+
+            taCheckApiOnLoad();
+        });
+
+        function showLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if(overlay) {
+                overlay.style.display = 'flex';
+                overlay.style.opacity = '1';
+            }
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if(overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => { overlay.style.display = 'none'; }, 300);
+            }
+        }
+
+        function checkLoginState() {
+            try {
+                const user = JSON.parse(sessionStorage.getItem('currentUser'));
+                if (user) {
+                    currentUser = user;
+                    initializeApp();
+                } else {
+                    showLogin();
+                }
+            } catch (e) {
+                showLogin();
+            }
+        }
+
+        function showLogin() {
+            hideLoading();
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'none';
+            document.querySelector('header').style.display = 'none'; 
+        }
+
+        function showMainApp() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.querySelector('header').style.display = 'block'; 
+            document.getElementById('userSection').style.display = 'flex';
+            document.getElementById('welcomeUser').textContent = currentUser.fullName;
+            
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminTabButton').style.display = 'flex';
+                taRenderApiConfig();
+            }
+        }
+
+        function initializeApp() {
+            showMainApp();
+            fetchAllData();
+        }
+
+        // --- Authentication ---
+        function login() {
+            showLoading();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน', 'warning');
+                hideLoading();
+                return;
+            }
+
+            google.script.run
+                .withSuccessHandler(user => {
+                    if (user) {
+                        sessionStorage.setItem('currentUser', JSON.stringify(user));
+                        currentUser = user;
+                        initializeApp();
+                    } else {
+                        Swal.fire('เข้าสู่ระบบไม่สำเร็จ', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+                        hideLoading();
+                    }
+                })
+                .withFailureHandler(error => {
+                    Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์', 'error');
+                    hideLoading();
+                })
+                .login(username, password);
+        }
+
+        function logout() {
+            Swal.fire({
+                title: 'ออกจากระบบ',
+                text: "คุณต้องการออกจากระบบใช่หรือไม่?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'ใช่, ออกจากระบบ'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (window.TA_API) { TA_API.call('logout', [TA_API.currentSid()]).catch(() => {}); }
+                    sessionStorage.removeItem('currentUser');
+                    currentUser = null;
+                    // Force reload to clean state
+                    showLogin();
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    // Optional: Reload page to clear memory
+                    // location.reload(); 
+                }
+            });
+        }
+
+        // --- Profile Management ---
+        function openEditProfileModal() {
+            document.getElementById('editProfileFullName').value = currentUser.fullName;
+            document.getElementById('editProfileModal').classList.remove('hidden');
+            document.getElementById('editProfileModal').classList.add('flex');
+        }
+
+        function closeEditProfileModal() {
+             document.getElementById('editProfileModal').classList.add('hidden');
+             document.getElementById('editProfileModal').classList.remove('flex');
+        }
+
+        function updateSelfProfile(e) {
+            e.preventDefault();
+            const newName = document.getElementById('editProfileFullName').value;
+            const btn = document.getElementById('saveProfileBtn');
+            const oldText = btn.textContent;
+            
+            if(!newName) return;
+            
+            btn.disabled = true;
+            btn.textContent = 'กำลังบันทึก...';
+
+            google.script.run.withSuccessHandler(res => {
+                // Update Local State
+                currentUser.fullName = res.newFullName;
+                sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+                document.getElementById('welcomeUser').textContent = res.newFullName;
+                
+                // Update in global users array if exists
+                const uIdx = allData.users.findIndex(u => u.id === currentUser.id);
+                if(uIdx !== -1) allData.users[uIdx].fullName = res.newFullName;
+                
+                // Refresh UI that uses name
+                updateDashboard(document.getElementById('yearFilter').value);
+                populateUserSelects(allData.users);
+                
+                closeEditProfileModal();
+                Swal.fire('สำเร็จ', 'เปลี่ยนชื่อเรียบร้อย', 'success');
+                btn.disabled = false;
+                btn.textContent = oldText;
+            }).withFailureHandler(err => {
+                Swal.fire('Error', err.message, 'error');
+                btn.disabled = false;
+                btn.textContent = oldText;
+            }).updateUserFullName(currentUser.id, newName);
+        }
+
+
+        // --- Data Fetching ---
+        function fetchAllData() {
+            if(document.getElementById('loadingOverlay').style.display === 'none') {
+                 showLoading();
+            }
+
+            google.script.run
+                .withSuccessHandler(data => {
+                    try {
+                        allData = data || { users: [], trainings: [], awards: [] };
+                        
+                        populateUserSelects(allData.users || []);
+                        populateTrainingTable(allData.trainings || []);
+                        populateAwardTable(allData.awards || []);
+                        
+                        if (currentUser.role === 'admin') {
+                            populateUserTable(allData.users || []);
+                        }
+                        
+                        populateYearFilter(allData.trainings || [], allData.awards || []);
+                    } catch (error) {
+                        console.error("Error processing data:", error);
+                        Swal.fire('ข้อผิดพลาด', 'เกิดปัญหาในการแสดงผลข้อมูล: ' + error.message, 'error');
+                    } finally {
+                        hideLoading();
+                    }
+                })
+                .withFailureHandler(error => {
+                    console.error("Server error:", error);
+                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้', 'error');
+                    hideLoading();
+                })
+                .getAllData();
+        }
+
+        // --- Dashboard ---
+        function populateYearFilter(trainings, awards) {
+            const years = [...new Set([...trainings.map(t => t.year), ...awards.map(a => a.year)])]
+                .filter(y => y).sort((a, b) => b - a);
+
+            const yearFilter = document.getElementById('yearFilter');
+            yearFilter.innerHTML = '';
+
+            if (years.length === 0) years.push(new Date().getFullYear() + 543);
+
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = `${year}`;
+                yearFilter.appendChild(option);
+            });
+
+            yearFilter.value = years[0];
+            updateDashboard(years[0]);
+        }
+
+        function updateDashboard(year) {
+            try {
+                yearSummaryCards(year);
+                trainingHoursChart(year);
+                awardsChart(year);
+                teacherStats(year);
+            } catch (e) {
+                console.error("Dashboard update error:", e);
+            }
+        }
+
+        function yearSummaryCards(year) {
+            const yearTrainings = allData.trainings.filter(t => String(t.year) == String(year));
+            const yearAwards = allData.awards.filter(a => String(a.year) == String(year));
+            
+            let totalHours = 0;
+            yearTrainings.forEach(t => {
+                if (t.dateType === 'range' && t.startDate && t.endDate) {
+                    try {
+                        const d1 = new Date(t.startDate);
+                        const d2 = new Date(t.endDate);
+                        const diff = Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+                        totalHours += (diff * (parseFloat(t.hoursPerDay) || 0));
+                    } catch (e) {}
+                } else if (t.hours) {
+                    totalHours += parseFloat(t.hours);
+                }
+            });
+
+            animateValue("summaryTotalTrainings", 0, yearTrainings.length, 800);
+            animateValue("summaryTotalHours", 0, Math.round(totalHours), 800);
+            animateValue("summaryTotalAwards", 0, yearAwards.length, 800);
+        }
+
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            if(!obj) return;
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function trainingHoursChart(year) {
+            const yearData = allData.trainings.filter(t => String(t.year) == String(year));
+            const userMap = {};
+            
+            allData.users.forEach(u => userMap[u.id] = { name: u.fullName, hours: 0 });
+            
+            yearData.forEach(t => {
+                let hours = 0;
+                if (t.dateType === 'range' && t.startDate && t.endDate) {
+                    try {
+                        const d1 = new Date(t.startDate);
+                        const d2 = new Date(t.endDate);
+                        const diff = Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+                        hours = diff * (parseFloat(t.hoursPerDay) || 0);
+                    } catch(e){}
+                } else {
+                    hours = parseFloat(t.hours) || 0;
+                }
+                if (userMap[t.teacherId]) userMap[t.teacherId].hours += hours;
+            });
+
+            const labels = Object.values(userMap).map(u => u.name);
+            const data = Object.values(userMap).map(u => u.hours);
+
+            const canvas = document.getElementById('trainingHoursChart');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            if (trainingChart) trainingChart.destroy();
+            
+            trainingChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ชั่วโมง',
+                        data: data,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function awardsChart(year) {
+            const yearData = allData.awards.filter(a => String(a.year) == String(year));
+            const userMap = {};
+            allData.users.forEach(u => userMap[u.id] = { name: u.fullName, count: 0 });
+            
+            yearData.forEach(a => {
+                if (userMap[a.teacherId]) userMap[a.teacherId].count++;
+            });
+
+            const labels = Object.values(userMap).map(u => u.name);
+            const data = Object.values(userMap).map(u => u.count);
+            
+            const finalLabels = [];
+            const finalData = [];
+            data.forEach((val, idx) => {
+                if(val > 0) {
+                    finalLabels.push(labels[idx]);
+                    finalData.push(val);
+                }
+            });
+
+            const canvas = document.getElementById('awardsChart');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (awardChart) awardChart.destroy();
+            
+            awardChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: finalLabels,
+                    datasets: [{
+                        data: finalData,
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12 } }
+                    }
+                }
+            });
+        }
+
+        // --- Stats with Pagination ---
+        function teacherStats(year) {
+            const yearTrainings = allData.trainings.filter(t => String(t.year) == String(year));
+            const yearAwards = allData.awards.filter(a => String(a.year) == String(year));
+            const stats = {};
+            
+            allData.users.forEach(u => {
+                stats[u.id] = { name: u.fullName, tCount: 0, hours: 0, aCount: 0 };
+            });
+
+            yearTrainings.forEach(t => {
+                if (stats[t.teacherId]) {
+                    stats[t.teacherId].tCount++;
+                    let h = 0;
+                    if (t.dateType === 'range') {
+                        const d1 = new Date(t.startDate), d2 = new Date(t.endDate);
+                        h = (Math.ceil(Math.abs(d2-d1)/(864e5))+1) * (parseFloat(t.hoursPerDay)||0);
+                    } else h = parseFloat(t.hours)||0;
+                    stats[t.teacherId].hours += h;
+                }
+            });
+
+            yearAwards.forEach(a => {
+                if (stats[a.teacherId]) stats[a.teacherId].aCount++;
+            });
+            
+            // Sort and Store Global
+            currentStatsData = Object.values(stats).sort((a,b) => a.name.localeCompare(b.name, 'th'));
+            statsPage = 1; // Reset page
+            renderStatsTable();
+        }
+
+        function renderStatsTable() {
+            const tbody = document.getElementById('teacherStatsBody');
+            tbody.innerHTML = '';
+            
+            if(currentStatsData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">ไม่มีข้อมูล</td></tr>';
+                document.getElementById('paginationControls').style.display = 'none';
+                return;
+            }
+
+            // Pagination Logic
+            const start = (statsPage - 1) * statsRows;
+            const end = start + statsRows;
+            const paginatedItems = currentStatsData.slice(start, end);
+            const totalPages = Math.ceil(currentStatsData.length / statsRows);
+
+            paginatedItems.forEach(s => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-medium">${s.name}</td>
+                        <td class="p-4 text-center"><span class="bg-blue-100 text-blue-700 py-1 px-3 rounded-full text-xs font-bold">${s.tCount}</span></td>
+                        <td class="p-4 text-center text-slate-600 font-semibold">${s.hours.toLocaleString()}</td>
+                        <td class="p-4 text-center"><span class="bg-amber-100 text-amber-700 py-1 px-3 rounded-full text-xs font-bold">${s.aCount}</span></td>
+                    </tr>
+                `;
+            });
+
+            // Controls
+            if(currentStatsData.length > statsRows) {
+                document.getElementById('paginationControls').style.display = 'flex';
+                document.getElementById('pageIndicator').textContent = `หน้า ${statsPage} / ${totalPages}`;
+                document.getElementById('prevPageBtn').disabled = statsPage === 1;
+                document.getElementById('nextPageBtn').disabled = statsPage === totalPages;
+            } else {
+                 document.getElementById('paginationControls').style.display = 'none';
+            }
+        }
+
+        function changeStatsPage(direction) {
+            statsPage += direction;
+            renderStatsTable();
+        }
+
+
+        // --- Tabs ---
+        function openTab(event, tabName) {
+            const contents = document.getElementsByClassName("tab-content");
+            for (let c of contents) c.style.display = "none";
+            const btns = document.getElementsByClassName("tab-button");
+            for (let b of btns) b.classList.remove("active", "bg-slate-50");
+            
+            document.getElementById(tabName).style.display = "block";
+            event.currentTarget.classList.add("active");
+        }
+        
+        // (Drag & Drop and Helper functions remain same as previous version...)
+        function initializeFileDropZone(zoneId, inputId, previewId, typeKey) {
+            const dropZone = document.getElementById(zoneId);
+            const fileInput = document.getElementById(inputId);
+            
+            if (!dropZone || !fileInput) return; 
+
+            dropZone.onclick = () => fileInput.click();
+            
+            dropZone.ondragover = (event) => {
+                event.preventDefault();
+                dropZone.classList.add('dragover');
+            };
+            
+            dropZone.ondragleave = (event) => {
+                event.preventDefault();
+                dropZone.classList.remove('dragover');
+            };
+            
+            dropZone.ondrop = (event) => {
+                event.preventDefault();
+                dropZone.classList.remove('dragover');
+                const files = event.dataTransfer.files;
+                fileInput.files = files;
+                handleFiles(files, typeKey, previewId);
+            };
+        }
+        
+        function handleFiles(files, typeKey, previewId) {
+            if (!typeKey) {
+                if (document.getElementById('filePreviewContainer')) {
+                     typeKey = 'training'; 
+                     previewId = 'filePreviewContainer';
+                }
+            }
+            const previewContainer = document.getElementById(previewId);
+            if (!previewContainer) return;
+            if (typeKey === 'award' || typeKey === 'training') {
+                 stagedFiles[typeKey] = [];
+                 previewContainer.innerHTML = '';
+            }
+            for (const file of files) {
+                if (!stagedFiles[typeKey].find(f => f.name === file.name && f.size === file.size)) {
+                    stagedFiles[typeKey].push(file);
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const previewEl = document.createElement('div');
+                        previewEl.className = 'file-preview flex items-center p-2 bg-slate-50 border border-slate-200 rounded-lg';
+                        let thumbnail = '';
+                        if (file.type.startsWith('image/')) {
+                            thumbnail = `<img src="${e.target.result}" class="w-10 h-10 object-cover rounded-md mr-3">`;
+                        } else {
+                            thumbnail = `<i class="ph ph-file-pdf text-3xl text-red-500 mr-3"></i>`;
+                        }
+                        previewEl.innerHTML = `
+                            ${thumbnail}
+                            <div class="flex-grow min-w-0">
+                                <p class="text-sm font-medium text-slate-700 truncate">${file.name}</p>
+                                <p class="text-xs text-slate-400">${(file.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                            <button type="button" onclick="removeStagedFile('${file.name}', '${typeKey}', this)" class="ml-2 text-red-400 hover:text-red-600 p-1">
+                                <i class="ph ph-trash text-lg"></i>
+                            </button>
+                        `;
+                        previewContainer.appendChild(previewEl);
+                    };
+                    if (file.type.startsWith('image/')) {
+                        reader.readAsDataURL(file);
+                    } else {
+                        reader.onload({ target: { result: null } });
+                    }
+                }
+            }
+        }
+
+        function removeStagedFile(fileName, typeKey, buttonElement) {
+            stagedFiles[typeKey] = stagedFiles[typeKey].filter(f => f.name !== fileName);
+            buttonElement.parentElement.remove();
+        }
+        
+        function removeExistingFile(fileId, typeKey, buttonElement) {
+            const modalId = typeKey === 'training' ? 'editTrainingId' : 'awardId';
+            const dataId = document.getElementById(modalId).value;
+            const dataStore = typeKey === 'training' ? allData.trainings : allData.awards;
+            const dataItem = dataStore.find(item => item.id === dataId);
+            if (dataItem) {
+                dataItem.files = dataItem.files.filter(f => f.id !== fileId);
+                buttonElement.closest('.flex').remove();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ลบไฟล์แล้ว',
+                    text: 'ไฟล์จะถูกลบถาวรเมื่อบันทึก',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+            }
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const base64Data = e.target.result.split(',')[1];
+                    resolve({
+                        base64: base64Data,
+                        type: file.type,
+                        name: file.name
+                    });
+                };
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function populateTrainingTable(data) {
+            const tbody = document.getElementById('trainingTableBody');
+            tbody.innerHTML = '';
+            if(!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400"><i class="ph ph-folder-open text-3xl mb-2 block"></i>ไม่พบข้อมูล</td></tr>';
+                return;
+            }
+            const sorted = [...data].sort((a,b) => b.year - a.year || a.teacherName.localeCompare(b.teacherName, 'th'));
+            sorted.forEach(t => {
+                let dateStr = t.dateType === 'range' ? `${formatDate(t.startDate)} - ${formatDate(t.endDate)}` : formatDate(t.date);
+                let hours = '0';
+                if(t.dateType === 'range') {
+                     try {
+                        const d1 = new Date(t.startDate), d2 = new Date(t.endDate);
+                        hours = ((Math.ceil(Math.abs(d2-d1)/864e5)+1) * (parseFloat(t.hoursPerDay)||0)).toLocaleString();
+                     } catch(e){}
+                } else hours = parseFloat(t.hours).toLocaleString();
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-blue-50 transition-colors group">
+                        <td class="px-6 py-4 font-medium text-slate-500">${t.year}</td>
+                        <td class="px-6 py-4 font-semibold text-slate-700">${t.teacherName}</td>
+                        <td class="px-6 py-4 whitespace-normal min-w-[200px]"><span class="line-clamp-1" title="${t.title}">${t.title}</span></td>
+                        <td class="px-6 py-4 text-slate-500 text-xs">${dateStr}</td>
+                        <td class="px-6 py-4 text-right font-mono text-blue-600">${hours}</td>
+                        <td class="px-6 py-4 text-center">
+                            ${(t.files && t.files.length) ? 
+                                `<button onclick="viewAttachments('${t.id}', 'training')" class="text-slate-400 hover:text-blue-600 transition-colors"><i class="ph ph-paperclip text-xl"></i> <span class="text-xs align-top">${t.files.length}</span></button>` : 
+                                '<span class="text-slate-300">-</span>'}
+                        </td>
+                        <td class="px-6 py-4 text-right space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="openEditTrainingModal('${t.id}')" class="text-indigo-500 hover:bg-indigo-50 p-1 rounded"><i class="ph ph-pencil-simple"></i></button>
+                            <button onclick="deleteTraining('${t.id}')" class="text-red-500 hover:bg-red-50 p-1 rounded"><i class="ph ph-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        
+        function populateAwardTable(data) {
+            const tbody = document.getElementById('awardTableBody');
+            tbody.innerHTML = '';
+            if(!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400"><i class="ph ph-trophy text-3xl mb-2 block"></i>ไม่พบข้อมูล</td></tr>';
+                return;
+            }
+            const sorted = [...data].sort((a,b) => b.year - a.year);
+            sorted.forEach(a => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-emerald-50 transition-colors group">
+                        <td class="px-6 py-4 font-medium text-slate-500">${a.year}</td>
+                        <td class="px-6 py-4 font-semibold text-slate-700">${a.teacherName}</td>
+                        <td class="px-6 py-4 whitespace-normal min-w-[200px]"><span class="line-clamp-1 text-emerald-700 font-medium" title="${a.title}">${a.title}</span></td>
+                        <td class="px-6 py-4 text-slate-500 text-xs">${formatDate(a.date)}</td>
+                        <td class="px-6 py-4 text-center">
+                             ${(a.files && a.files.length) ? 
+                                `<button onclick="viewAttachments('${a.id}', 'award')" class="text-slate-400 hover:text-emerald-600 transition-colors"><i class="ph ph-paperclip text-xl"></i> <span class="text-xs align-top">${a.files.length}</span></button>` : 
+                                '<span class="text-slate-300">-</span>'}
+                        </td>
+                        <td class="px-6 py-4 text-right space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="openEditAwardModal('${a.id}')" class="text-indigo-500 hover:bg-indigo-50 p-1 rounded"><i class="ph ph-pencil-simple"></i></button>
+                            <button onclick="deleteAward('${a.id}')" class="text-red-500 hover:bg-red-50 p-1 rounded"><i class="ph ph-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function populateUserTable(users) {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+            users.forEach(u => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-50">
+                        <td class="px-6 py-4 text-slate-400 text-xs font-mono">${u.id}</td>
+                        <td class="px-6 py-4 font-medium text-slate-700">${u.username}</td>
+                        <td class="px-6 py-4">${u.fullName}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-1 rounded text-xs font-bold ${u.role==='admin'?'bg-purple-100 text-purple-700':'bg-slate-100 text-slate-600'}">${u.role.toUpperCase()}</span></td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick="openEditUserModal('${u.id}')" class="text-indigo-600 hover:underline text-xs mr-2">แก้ไข</button>
+                            ${currentUser.id !== u.id ? `<button onclick="deleteUser('${u.id}')" class="text-red-600 hover:underline text-xs">ลบ</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function populateUserSelects(users) {
+            const selects = ['teacherId', 'editTeacherId', 'awardTeacherId'];
+            const sorted = [...users].sort((a,b) => a.fullName.localeCompare(b.fullName, 'th'));
+            selects.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    const oldVal = el.value;
+                    el.innerHTML = '<option value="">-- เลือกรายชื่อ --</option>';
+                    sorted.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.id;
+                        opt.textContent = u.fullName;
+                        el.appendChild(opt);
+                    });
+                    el.value = oldVal;
+                }
+            });
+        }
+
+        function openAddTrainingModal() {
+            document.getElementById('trainingForm').reset();
+            document.getElementById('trainingId').value = '';
+            document.getElementById('trainingModalTitle').textContent = 'เพิ่มข้อมูลการอบรม';
+            stagedFiles.training = [];
+            document.getElementById('filePreviewContainer').innerHTML = '';
+            
+            if (currentUser.role !== 'admin') {
+                document.getElementById('teacherId').value = currentUser.id;
+            } else {
+                 document.getElementById('teacherId').disabled = false;
+            }
+            toggleDateType('single');
+            document.getElementById('trainingModal').classList.remove('hidden');
+            document.getElementById('trainingModal').classList.add('flex');
+        }
+
+        function closeTrainingModal() {
+            document.getElementById('trainingModal').classList.add('hidden');
+            document.getElementById('trainingModal').classList.remove('flex');
+        }
+        
+        function openEditTrainingModal(id) {
+            const t = allData.trainings.find(x => x.id === id);
+            if(!t) return;
+            document.getElementById('editTrainingId').value = t.id;
+            document.getElementById('editTeacherId').value = t.teacherId;
+            document.getElementById('editYear').value = t.year;
+            document.getElementById('editTitle').value = t.title;
+            document.getElementById('editOrganization').value = t.organization;
+            const dtype = t.dateType || 'single';
+            document.querySelector(`input[name="editDateType"][value="${dtype}"]`).checked = true;
+            toggleEditDateType(dtype);
+            document.getElementById('editDate').value = t.date ? t.date.split('T')[0] : '';
+            document.getElementById('editHours').value = t.hours || '';
+            document.getElementById('editStartDate').value = t.startDate ? t.startDate.split('T')[0] : '';
+            document.getElementById('editEndDate').value = t.endDate ? t.endDate.split('T')[0] : '';
+            document.getElementById('editHoursPerDay').value = t.hoursPerDay || '6';
+            stagedFiles.editTraining = [];
+            document.getElementById('editFilePreviewContainer').innerHTML = '';
+            const ext = document.getElementById('existingFilesContainer');
+            ext.innerHTML = '';
+            if(t.files && t.files.length) {
+                t.files.forEach(f => {
+                    ext.innerHTML += `
+                        <div class="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <i class="ph ph-file text-slate-400"></i>
+                                <a href="${f.url}" target="_blank" class="text-sm text-blue-600 truncate hover:underline">${f.name}</a>
+                            </div>
+                            <button type="button" onclick="removeExistingFile('${f.id}', 'training', this)" class="text-slate-400 hover:text-red-500"><i class="ph ph-x"></i></button>
+                        </div>
+                    `;
+                });
+            } else ext.innerHTML = '<span class="text-xs text-slate-400">ไม่มีไฟล์เดิม</span>';
+            document.getElementById('editTrainingModal').classList.remove('hidden');
+            document.getElementById('editTrainingModal').classList.add('flex');
+        }
+
+        function closeEditTrainingModal() {
+             document.getElementById('editTrainingModal').classList.add('hidden');
+             document.getElementById('editTrainingModal').classList.remove('flex');
+        }
+
+        async function saveTraining(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveTrainingBtn');
+            const origText = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> กำลังบันทึก...';
+            const teacherSel = document.getElementById('teacherId');
+            const data = {
+                id: document.getElementById('trainingId').value || null,
+                teacherId: teacherSel.value,
+                teacherName: teacherSel.options[teacherSel.selectedIndex].text,
+                title: document.getElementById('title').value,
+                year: document.getElementById('year').value,
+                organization: document.getElementById('organization').value,
+                dateType: document.querySelector('input[name="dateType"]:checked').value,
+                date: document.getElementById('date').value,
+                hours: document.getElementById('hours').value,
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                hoursPerDay: document.getElementById('hoursPerDay').value
+            };
+            try {
+                const files = await Promise.all(stagedFiles.training.map(readFileAsBase64));
+                google.script.run.withSuccessHandler(res => {
+                        allData.trainings.push(res);
+                        fetchAllData(); 
+                        closeTrainingModal();
+                        Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อย', 'success');
+                        btn.disabled = false; btn.innerHTML = origText;
+                    })
+                    .withFailureHandler(err => {
+                        Swal.fire('Error', err.message, 'error');
+                        btn.disabled = false; btn.innerHTML = origText;
+                    })
+                    .addTrainingWithFiles(data, files);
+            } catch(err) { btn.disabled=false; btn.innerHTML=origText; }
+        }
+
+        async function updateTraining(e) {
+            e.preventDefault();
+            const btn = document.getElementById('updateTrainingBtn');
+            const origText = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> กำลังบันทึก...';
+            const id = document.getElementById('editTrainingId').value;
+            const teacherSel = document.getElementById('editTeacherId');
+            const orig = allData.trainings.find(t => t.id === id);
+            const data = {
+                teacherId: teacherSel.value,
+                teacherName: teacherSel.options[teacherSel.selectedIndex].text,
+                title: document.getElementById('editTitle').value,
+                year: document.getElementById('editYear').value,
+                organization: document.getElementById('editOrganization').value,
+                dateType: document.querySelector('input[name="editDateType"]:checked').value,
+                date: document.getElementById('editDate').value,
+                hours: document.getElementById('editHours').value,
+                startDate: document.getElementById('editStartDate').value,
+                endDate: document.getElementById('editEndDate').value,
+                hoursPerDay: document.getElementById('editHoursPerDay').value,
+                files: orig.files || []
+            };
+            try {
+                const files = await Promise.all(stagedFiles.editTraining.map(readFileAsBase64));
+                google.script.run.withSuccessHandler(res => {
+                    const idx = allData.trainings.findIndex(x => x.id === res.id);
+                    if(idx!==-1) allData.trainings[idx] = res;
+                    populateTrainingTable(allData.trainings);
+                    updateDashboard(document.getElementById('yearFilter').value);
+                    closeEditTrainingModal();
+                    Swal.fire('สำเร็จ', 'แก้ไขข้อมูลเรียบร้อย', 'success');
+                    btn.disabled = false; btn.innerHTML = origText;
+                }).withFailureHandler(err => {
+                    Swal.fire('Error', err.message, 'error');
+                    btn.disabled = false; btn.innerHTML = origText;
+                }).editTrainingWithFiles(id, data, files);
+            } catch(err) { btn.disabled=false; btn.innerHTML=origText; }
+        }
+        
+        function deleteTraining(id) {
+             Swal.fire({ title: 'ยืนยันลบ?', icon: 'warning', showCancelButton: true, confirmButtonColor:'#ef4444', confirmButtonText:'ลบ'}).then(res => {
+                 if(res.isConfirmed) {
+                     showLoading();
+                     google.script.run.withSuccessHandler(r => {
+                         allData.trainings = allData.trainings.filter(x => x.id !== r.deletedId);
+                         populateTrainingTable(allData.trainings);
+                         updateDashboard(document.getElementById('yearFilter').value);
+                         hideLoading();
+                         Swal.fire('Deleted', '', 'success');
+                     }).deleteTraining(id);
+                 }
+             });
+        }
+
+        function openAddAwardModal() {
+            document.getElementById('awardForm').reset();
+            document.getElementById('awardId').value = '';
+            document.getElementById('awardModalTitle').textContent = 'เพิ่มรางวัล/เกียรติบัตร';
+            document.getElementById('awardExistingFilesSection').classList.add('hidden');
+            stagedFiles.award = [];
+            document.getElementById('awardFilePreviewContainer').innerHTML = '';
+            if(currentUser.role !== 'admin') document.getElementById('awardTeacherId').value = currentUser.id;
+            else document.getElementById('awardTeacherId').disabled = false;
+            document.getElementById('awardModal').classList.remove('hidden');
+            document.getElementById('awardModal').classList.add('flex');
+        }
+
+        function openEditAwardModal(id) {
+            const a = allData.awards.find(x => x.id === id);
+            if(!a) return;
+            document.getElementById('awardId').value = a.id;
+            document.getElementById('awardTeacherId').value = a.teacherId;
+            document.getElementById('awardYear').value = a.year;
+            document.getElementById('awardTitle').value = a.title;
+            document.getElementById('awardOrganization').value = a.organization;
+            document.getElementById('awardDate').value = a.date ? a.date.split('T')[0] : '';
+            document.getElementById('awardModalTitle').textContent = 'แก้ไขรางวัล';
+            stagedFiles.award = [];
+            document.getElementById('awardFilePreviewContainer').innerHTML = '';
+            const cont = document.getElementById('awardExistingFilesContainer');
+            cont.innerHTML = '';
+            if(a.files && a.files.length) {
+                document.getElementById('awardExistingFilesSection').classList.remove('hidden');
+                a.files.forEach(f => {
+                    cont.innerHTML += `
+                        <div class="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <i class="ph ph-image text-slate-400"></i>
+                                <a href="${f.url}" target="_blank" class="text-sm text-blue-600 truncate hover:underline">${f.name}</a>
+                            </div>
+                            <button type="button" onclick="removeExistingFile('${f.id}', 'award', this)" class="text-slate-400 hover:text-red-500"><i class="ph ph-x"></i></button>
+                        </div>
+                    `;
+                });
+            } else {
+                 document.getElementById('awardExistingFilesSection').classList.add('hidden');
+            }
+            document.getElementById('awardModal').classList.remove('hidden');
+            document.getElementById('awardModal').classList.add('flex');
+        }
+
+        function closeAwardModal() {
+            document.getElementById('awardModal').classList.add('hidden');
+            document.getElementById('awardModal').classList.remove('flex');
+        }
+
+        async function saveAward(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveAwardBtn');
+            const origText = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> กำลังบันทึก...';
+            const id = document.getElementById('awardId').value;
+            const teacherSel = document.getElementById('awardTeacherId');
+            const data = {
+                teacherId: teacherSel.value,
+                teacherName: teacherSel.options[teacherSel.selectedIndex].text,
+                title: document.getElementById('awardTitle').value,
+                year: document.getElementById('awardYear').value,
+                organization: document.getElementById('awardOrganization').value,
+                date: document.getElementById('awardDate').value
+            };
+            try {
+                const files = await Promise.all(stagedFiles.award.map(readFileAsBase64));
+                const method = id ? 'editAwardWithFiles' : 'addAwardWithFiles';
+                const args = id ? [id, data, files] : [data, files];
+                if(id) {
+                    const old = allData.awards.find(x=>x.id===id);
+                    data.files = old.files || [];
+                }
+                google.script.run.withSuccessHandler(res => {
+                    if(id) {
+                        const idx = allData.awards.findIndex(x => x.id === res.id);
+                        if(idx!==-1) allData.awards[idx] = res;
+                    } else {
+                        allData.awards.push(res);
+                    }
+                    populateAwardTable(allData.awards);
+                    updateDashboard(document.getElementById('yearFilter').value);
+                    closeAwardModal();
+                    Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อย', 'success');
+                    btn.disabled = false; btn.innerHTML = origText;
+                }).withFailureHandler(err => {
+                     Swal.fire('Error', err.message, 'error');
+                     btn.disabled = false; btn.innerHTML = origText;
+                })[method](...args);
+            } catch(err) { btn.disabled=false; btn.innerHTML=origText; }
+        }
+        
+        function deleteAward(id) {
+             Swal.fire({ title: 'ยืนยันลบ?', icon: 'warning', showCancelButton: true, confirmButtonColor:'#ef4444', confirmButtonText:'ลบ'}).then(res => {
+                 if(res.isConfirmed) {
+                     showLoading();
+                     google.script.run.withSuccessHandler(r => {
+                         allData.awards = allData.awards.filter(x => x.id !== r.deletedId);
+                         populateAwardTable(allData.awards);
+                         updateDashboard(document.getElementById('yearFilter').value);
+                         hideLoading();
+                         Swal.fire('Deleted', '', 'success');
+                     }).deleteAward(id);
+                 }
+             });
+        }
+
+        function openAddUserModal() {
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('userModalTitle').textContent = 'เพิ่มผู้ใช้งาน';
+            document.getElementById('userModal').classList.remove('hidden');
+            document.getElementById('userModal').classList.add('flex');
+        }
+        
+        function openEditUserModal(id) {
+            const u = allData.users.find(x => x.id === id);
+            if(!u) return;
+            document.getElementById('userId').value = u.id;
+            document.getElementById('userFullName').value = u.fullName;
+            document.getElementById('userUsername').value = u.username;
+            document.getElementById('userRole').value = u.role;
+            document.getElementById('userPassword').value = '';
+            document.getElementById('userModalTitle').textContent = 'แก้ไขผู้ใช้งาน';
+            document.getElementById('userModal').classList.remove('hidden');
+            document.getElementById('userModal').classList.add('flex');
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').classList.add('hidden');
+            document.getElementById('userModal').classList.remove('flex');
+        }
+
+        function saveUser(e) {
+            e.preventDefault();
+            const id = document.getElementById('userId').value;
+            const data = {
+                id: id || null,
+                fullName: document.getElementById('userFullName').value,
+                username: document.getElementById('userUsername').value,
+                password: document.getElementById('userPassword').value,
+                role: document.getElementById('userRole').value
+            };
+            
+            const method = id ? 'editUser' : 'addUser';
+            google.script.run.withSuccessHandler(res => {
+                allData.users = res;
+                populateUserTable(res);
+                closeUserModal();
+                Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อย', 'success');
+            })[method](data);
+        }
+
+        function deleteUser(id) {
+            Swal.fire({ title: 'ยืนยันลบผู้ใช้?', text: 'ข้อมูลทั้งหมดของผู้ใช้นี้จะหายไป', icon: 'warning', showCancelButton: true, confirmButtonColor:'#ef4444'}).then(res => {
+                if(res.isConfirmed) {
+                    google.script.run.withSuccessHandler(r => {
+                        allData = r.allData;
+                        populateUserTable(allData.users);
+                        Swal.fire('Deleted', '', 'success');
+                    }).deleteUser(id);
+                }
+            });
+        }
+
+        function viewAttachments(id, type) {
+            const ds = type === 'training' ? allData.trainings : allData.awards;
+            const item = ds.find(i => i.id === id);
+            const cont = document.getElementById('fileModalContent');
+            cont.innerHTML = '';
+            if(item && item.files && item.files.length) {
+                item.files.forEach(f => {
+                    cont.innerHTML += `
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <div class="bg-white p-2 rounded-lg border border-slate-100 text-blue-500">
+                                    <i class="ph ph-file-arrow-down text-2xl"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-medium text-slate-700 truncate">${f.name}</p>
+                                    <span class="text-xs text-slate-400">คลิกเพื่อดาวน์โหลด/เปิดดู</span>
+                                </div>
+                            </div>
+                            <a href="${f.url}" target="_blank" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all text-sm font-medium whitespace-nowrap">
+                                เปิดดูไฟล์
+                            </a>
+                        </div>
+                    `;
+                });
+                document.getElementById('fileAttachmentModal').classList.remove('hidden');
+                document.getElementById('fileAttachmentModal').classList.add('flex');
+            } else {
+                Swal.fire('ไม่พบไฟล์', '', 'info');
+            }
+        }
+        
+        function closeFileAttachmentModal() {
+            document.getElementById('fileAttachmentModal').classList.add('hidden');
+            document.getElementById('fileAttachmentModal').classList.remove('flex');
+        }
+
+        function formatDate(d) {
+            if(!d) return '-';
+            try {
+                const date = new Date(d);
+                return `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()+543}`;
+            } catch(e) { return d; }
+        }
+
+        function toggleDateType(type) {
+            if(type === 'single') {
+                document.getElementById('singleDateSection').classList.remove('hidden');
+                document.getElementById('dateRangeSection').classList.add('hidden');
+            } else {
+                document.getElementById('singleDateSection').classList.add('hidden');
+                document.getElementById('dateRangeSection').classList.remove('hidden');
+            }
+        }
+        
+        function toggleEditDateType(type) {
+            if(type === 'single') {
+                document.getElementById('editSingleDateSection').classList.remove('hidden');
+                document.getElementById('editDateRangeSection').classList.add('hidden');
+            } else {
+                document.getElementById('editSingleDateSection').classList.add('hidden');
+                document.getElementById('editDateRangeSection').classList.remove('hidden');
+            }
+        }
+
+        // ================= ตั้งค่าระบบ (API) — สำหรับผู้ดูแล =================
+        function taSetChip(ok, text, extra) {
+            const chip = document.getElementById('apiStatusChip');
+            if (!chip) return;
+            chip.className = 'inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full whitespace-nowrap ' +
+                (ok === true ? 'bg-emerald-100 text-emerald-700'
+                 : ok === false ? 'bg-red-100 text-red-700'
+                 : 'bg-slate-100 text-slate-600');
+            document.getElementById('apiStatusText').textContent = text + (extra ? ' · ' + extra : '');
+        }
+
+        function taRenderApiConfig() {
+            if (!window.TA_API) return;
+            const c = TA_API.getConfig();
+            const el = (id) => document.getElementById(id);
+            if (el('cfgApiUrl')) el('cfgApiUrl').value = c.apiUrl || '';
+            if (el('cfgApiToken')) el('cfgApiToken').value = c.apiToken || '';
+            if (el('cfgSheetId')) el('cfgSheetId').value = c.spreadsheetId || '';
+            // ดึงค่าจริงจากเซิร์ฟเวอร์มาแสดง (ถ้าเชื่อมต่อได้)
+            TA_API.call('getConfig', []).then(cfg => {
+                if (!cfg) return;
+                if (el('cfgSheetId')) el('cfgSheetId').value = cfg.spreadsheetId || '';
+                taSetChip(true, 'เชื่อมต่อแล้ว', TA_API.lastTransport() || '');
+            }).catch(err => {
+                taSetChip(false, 'ยังเชื่อมต่อไม่ได้', String(err.message || err).slice(0, 60));
+            });
+        }
+
+        function taSaveApiConfig() {
+            if (!window.TA_API) return;
+            TA_API.save({
+                apiUrl: document.getElementById('cfgApiUrl').value,
+                apiToken: document.getElementById('cfgApiToken').value
+            });
+            Swal.fire({ icon: 'success', title: 'บันทึกการตั้งค่าแล้ว',
+                        text: 'มีผลกับเบราว์เซอร์เครื่องนี้ — ให้กด "ทดสอบการเชื่อมต่อ" ต่อ', timer: 2200, showConfirmButton: false })
+                .then(taTestApi);
+        }
+
+        function taTestApi() {
+            if (!window.TA_API) return;
+            taSetChip(null, 'กำลังทดสอบ...');
+            TA_API.call('ping', []).then(d => {
+                taSetChip(true, 'เชื่อมต่อได้', TA_API.lastTransport());
+                Swal.fire({ icon: 'success', title: 'เชื่อมต่อ API สำเร็จ',
+                            html: '<div style="text-align:left;font-size:14px">วิธีส่งข้อมูล: <b>' + (TA_API.lastTransport() || '-') +
+                                  '</b><br>เวลาเซิร์ฟเวอร์: ' + (d && d.time ? d.time : '-') + '</div>' });
+            }).catch(err => {
+                taSetChip(false, 'เชื่อมต่อไม่ได้');
+                Swal.fire({ icon: 'error', title: 'เชื่อมต่อ API ไม่สำเร็จ',
+                            html: '<div style="text-align:left;font-size:14px">' + String(err.message || err) +
+                                  '<br><br><b>ตรวจ 3 อย่าง:</b><br>1) Deploy เป็น <b>Anyone</b> แล้วหรือยัง<br>2) URL ลงท้าย <b>/exec</b><br>3) API Token ตรงกับ Code.gs</div>' });
+            });
+        }
+
+        function taResetApiConfig() {
+            if (!window.TA_API) return;
+            TA_API.reset();
+            taRenderApiConfig();
+            Swal.fire({ icon: 'info', title: 'ล้างค่าแล้ว', text: 'กลับไปใช้ค่าใน config.js', timer: 1800, showConfirmButton: false });
+        }
+
+        function taCheckApiOnLoad() {
+            if (!window.TA_API) {
+                console.warn('ไม่พบ gas-client.js — หน้าเว็บนี้จะเรียกข้อมูลไม่ได้');
+                return;
+            }
+            const ready = TA_API.isReady();
+            const box = document.getElementById('firstRunBox');
+            if (box) box.style.display = ready ? 'none' : 'block';
+            if (!ready) {
+                console.warn('[TA-API] ยังไม่ได้ตั้งค่า apiUrl — แสดงกล่องตั้งค่าครั้งแรก');
+                const c = TA_API.getConfig();
+                const u = document.getElementById('setupApiUrl');
+                const t = document.getElementById('setupApiToken');
+                if (u && !u.value) u.value = c.apiUrl || '';
+                if (t && !t.value) t.value = c.apiToken || '';
+            }
+        }
+
+        // บันทึกการตั้งค่าจากกล่อง "ตั้งค่าครั้งแรก" (ใช้ได้โดยไม่ต้องล็อกอิน)
+        function taSetupSave() {
+            if (!window.TA_API) return;
+            const url = (document.getElementById('setupApiUrl').value || '').trim();
+            const tok = (document.getElementById('setupApiToken').value || '').trim();
+            if (!url) {
+                Swal.fire({ icon: 'warning', title: 'ยังไม่ได้ใส่ API URL',
+                            text: 'คัดลอก URL ที่ลงท้ายด้วย /exec จากการ deploy Apps Script มาวาง' });
+                return;
+            }
+            if (url.indexOf('/exec') === -1) {
+                Swal.fire({ icon: 'warning', title: 'URL ไม่ถูกต้อง',
+                            text: 'URL ของ Web App ต้องลงท้ายด้วย /exec (ไม่ใช่ /dev)' });
+                return;
+            }
+            TA_API.save({ apiUrl: url, apiToken: tok });
+            Swal.fire({ title: 'กำลังทดสอบการเชื่อมต่อ...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+            TA_API.call('ping', []).then(d => {
+                Swal.fire({ icon: 'success', title: 'เชื่อมต่อสำเร็จ',
+                            html: '<div style="text-align:left;font-size:14px">วิธีส่งข้อมูล: <b>' + (TA_API.lastTransport() || '-') +
+                                  '</b><br>เวลาเซิร์ฟเวอร์: ' + (d && d.time ? d.time : '-') +
+                                  '<br><br>ต่อไปให้ <b>เข้าสู่ระบบ</b> ด้วยบัญชีของตัวเอง</div>' });
+                taRenderApiConfig();
+                taCheckApiOnLoad();
+                const ls = document.getElementById('loginSection');
+                if (ls) ls.style.display = 'block';
+            }).catch(err => {
+                Swal.fire({ icon: 'error', title: 'เชื่อมต่อไม่สำเร็จ',
+                            html: '<div style="text-align:left;font-size:14px">' + String(err.message || err) +
+                                  '<br><br><b>ตรวจ 3 อย่าง:</b><br>1) Deploy เป็น <b>Anyone</b> แล้วหรือยัง<br>2) URL ลงท้าย <b>/exec</b> (ไม่ใช่ /dev)<br>3) API Token ตรงกับ <b>API_TOKEN</b> ใน Code.gs</div>' });
+            });
+        }
+    </script>
+</body>
+</html>

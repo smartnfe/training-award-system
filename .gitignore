@@ -1,0 +1,23 @@
+# ไม่ขึ้นเว็บ / ไม่ commit
+_SECRET_*
+*.token
+.env
+.credentials/
+
+# ของชั่วคราว
+.check/
+*.check.js
+node_modules/
+.DS_Store
+Thumbs.db
+
+# ---- ไม่ขึ้น public repo (repo Pages มีแค่ไฟล์เว็บ) ----
+# apps_script/Code.gs มี API_TOKEN + โค้ดเซิร์ฟเวอร์
+apps_script/
+# tests/ ใช้รันเฉพาะเครื่องนี้
+tests/
+# docs/ มีรายชื่อครู 40 บัญชี (ข้อมูลส่วนบุคคล)
+docs/
+# README.md อธิบายรหัสผ่านผู้ใช้
+README.md
+
