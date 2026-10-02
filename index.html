@@ -861,6 +861,22 @@
         let trainingChart = null;
         let awardChart = null;
 
+        // ชื่อที่ใช้แสดง: ถ้าชีต Users ยังไม่ได้กรอกชื่อ-สกุล ให้ใช้ username แทน (กันรายการว่างเปล่า)
+        function dispName(u) {
+            if (!u) return '';
+            const n = String(u.fullName || '').trim();
+            return n || String(u.username || '').trim() || ('ผู้ใช้ ' + (u.id || ''));
+        }
+        function userById(id) {
+            return (allData.users || []).find(x => String(x.id) === String(id)) || null;
+        }
+        // ชื่อครูของรายการอบรม/รางวัล (เผื่อข้อมูลเก่าที่ teacherName ว่าง)
+        function recTeacherName(rec) {
+            if (!rec) return '-';
+            const n = String(rec.teacherName || '').trim();
+            return n || dispName(userById(rec.teacherId)) || '-';
+        }
+
         // Pagination Variables
         let currentStatsData = [];
         let statsPage = 1;
@@ -927,7 +943,7 @@
             document.getElementById('mainContent').style.display = 'block';
             document.querySelector('header').style.display = 'block'; 
             document.getElementById('userSection').style.display = 'flex';
-            document.getElementById('welcomeUser').textContent = currentUser.fullName;
+            document.getElementById('welcomeUser').textContent = dispName(currentUser);
             
             if (currentUser.role === 'admin') {
                 document.getElementById('adminTabButton').style.display = 'flex';
@@ -1152,7 +1168,7 @@
             const yearData = allData.trainings.filter(t => String(t.year) == String(year));
             const userMap = {};
             
-            allData.users.forEach(u => userMap[u.id] = { name: u.fullName, hours: 0 });
+            allData.users.forEach(u => userMap[u.id] = { name: dispName(u), hours: 0 });
             
             yearData.forEach(t => {
                 let hours = 0;
@@ -1206,7 +1222,7 @@
         function awardsChart(year) {
             const yearData = allData.awards.filter(a => String(a.year) == String(year));
             const userMap = {};
-            allData.users.forEach(u => userMap[u.id] = { name: u.fullName, count: 0 });
+            allData.users.forEach(u => userMap[u.id] = { name: dispName(u), count: 0 });
             
             yearData.forEach(a => {
                 if (userMap[a.teacherId]) userMap[a.teacherId].count++;
@@ -1257,7 +1273,7 @@
             const stats = {};
             
             allData.users.forEach(u => {
-                stats[u.id] = { name: u.fullName, tCount: 0, hours: 0, aCount: 0 };
+                stats[u.id] = { name: dispName(u), tCount: 0, hours: 0, aCount: 0 };
             });
 
             yearTrainings.forEach(t => {
@@ -1460,7 +1476,7 @@
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400"><i class="ph ph-folder-open text-3xl mb-2 block"></i>ไม่พบข้อมูล</td></tr>';
                 return;
             }
-            const sorted = [...data].sort((a,b) => b.year - a.year || a.teacherName.localeCompare(b.teacherName, 'th'));
+            const sorted = [...data].sort((a,b) => (b.year - a.year) || String(a.teacherName||'').localeCompare(String(b.teacherName||''), 'th'));
             sorted.forEach(t => {
                 let dateStr = t.dateType === 'range' ? `${formatDate(t.startDate)} - ${formatDate(t.endDate)}` : formatDate(t.date);
                 let hours = '0';
@@ -1474,7 +1490,7 @@
                 tbody.innerHTML += `
                     <tr class="hover:bg-blue-50 transition-colors group">
                         <td class="px-6 py-4 font-medium text-slate-500">${t.year}</td>
-                        <td class="px-6 py-4 font-semibold text-slate-700">${t.teacherName}</td>
+                        <td class="px-6 py-4 font-semibold text-slate-700">${recTeacherName(t)}</td>
                         <td class="px-6 py-4 whitespace-normal min-w-[200px]"><span class="line-clamp-1" title="${t.title}">${t.title}</span></td>
                         <td class="px-6 py-4 text-slate-500 text-xs">${dateStr}</td>
                         <td class="px-6 py-4 text-right font-mono text-blue-600">${hours}</td>
@@ -1504,7 +1520,7 @@
                 tbody.innerHTML += `
                     <tr class="hover:bg-emerald-50 transition-colors group">
                         <td class="px-6 py-4 font-medium text-slate-500">${a.year}</td>
-                        <td class="px-6 py-4 font-semibold text-slate-700">${a.teacherName}</td>
+                        <td class="px-6 py-4 font-semibold text-slate-700">${recTeacherName(a)}</td>
                         <td class="px-6 py-4 whitespace-normal min-w-[200px]"><span class="line-clamp-1 text-emerald-700 font-medium" title="${a.title}">${a.title}</span></td>
                         <td class="px-6 py-4 text-slate-500 text-xs">${formatDate(a.date)}</td>
                         <td class="px-6 py-4 text-center">
@@ -1529,7 +1545,7 @@
                     <tr class="hover:bg-slate-50 border-b border-slate-50">
                         <td class="px-6 py-4 text-slate-400 text-xs font-mono">${u.id}</td>
                         <td class="px-6 py-4 font-medium text-slate-700">${u.username}</td>
-                        <td class="px-6 py-4">${u.fullName}</td>
+                        <td class="px-6 py-4">${dispName(u)}</td>
                         <td class="px-6 py-4"><span class="px-2 py-1 rounded text-xs font-bold ${u.role==='admin'?'bg-purple-100 text-purple-700':'bg-slate-100 text-slate-600'}">${u.role.toUpperCase()}</span></td>
                         <td class="px-6 py-4 text-right">
                             <button onclick="openEditUserModal('${u.id}')" class="text-indigo-600 hover:underline text-xs mr-2">แก้ไข</button>
@@ -1542,7 +1558,7 @@
 
         function populateUserSelects(users) {
             const selects = ['teacherId', 'editTeacherId', 'awardTeacherId'];
-            const sorted = [...users].sort((a,b) => a.fullName.localeCompare(b.fullName, 'th'));
+            const sorted = [...users].sort((a,b) => dispName(a).localeCompare(dispName(b), 'th'));
             selects.forEach(id => {
                 const el = document.getElementById(id);
                 if(el) {
@@ -1551,7 +1567,7 @@
                     sorted.forEach(u => {
                         const opt = document.createElement('option');
                         opt.value = u.id;
-                        opt.textContent = u.fullName;
+                        opt.textContent = dispName(u);
                         el.appendChild(opt);
                     });
                     el.value = oldVal;
